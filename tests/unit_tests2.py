@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 
 import numpy as np
-import pyplume
+from pyplume import pyplume
 import gsw
 import unittest
-
+#import const
 
 class PyPlumeTests(unittest.TestCase):
 
@@ -19,12 +19,13 @@ class PyPlumeTests(unittest.TestCase):
 
     def test_density_from_pressure(self):
         self.ambient = pyplume.InitAmbient(self.z_max,self.salinity,self.temperature,pressure=self.pressure)
-        self.assertEqual(self.ambient.rho[0],gsw.rho(self.salinity[0],self.temperature[0],self.pressure[0]))
-		#self.assertEqual(self.ambient.rho[1],gsw.rho(self.salinity[1],self.temperature[1],self.pressure[1]))
+        self.assertEqual(self.ambient.rho.tolist(),
+                         gsw.rho(self.salinity,self.temperature,self.pressure).tolist())
  
     def test_density_from_depth(self):
         self.ambient = pyplume.InitAmbient(self.z_max,self.salinity,self.temperature,depth=self.depth)
-        self.assertEqual(self.ambient.rho[0],gsw.rho(self.salinity[0],self.temperature[0],self.pressure[0]))
+        self.assertEqual(self.ambient.rho.tolist(),
+                         gsw.rho(self.salinity,self.temperature,self.pressure).tolist())
 
     def test_profile_interpolation(self):
         self.ambient = pyplume.InitAmbient(self.z_max,self.salinity,self.temperature,pressure=self.pressure)
@@ -48,6 +49,20 @@ class PyPlumeTests(unittest.TestCase):
     def test_z0_vs_dmax(self):
         self.ambient = pyplume.InitAmbient(self.z_max,self.salinity,self.temperature,pressure=self.pressure)
         self.assertEqual(self.ambient.get_sal_z(0),self.ambient.get_sal_d(self.z_max))
+
+    def test_melt_function(self):
+        t_inf = 4.
+        u_inf = 0.1
+        s_inf = 30.
+        pressure = 10.
+        t_b, s_b, mdot = pyplume.get_melt(u_inf,t_inf,s_inf,pressure)
+        self.assertAlmostEqual(
+                mdot*pyplume.const.L+mdot*pyplume.const.C_I*(t_b-pyplume.const.T_I),
+                pyplume.const.C_W*u_inf*pyplume.const.C_D**0.5*pyplume.const.GAM_T*(t_inf-t_b))
+        self.assertAlmostEqual(t_b,
+                pyplume.const.A*s_b + pyplume.const.B + pyplume.const.C*pressure)
+        self.assertAlmostEqual(mdot*s_b,
+                u_inf*(pyplume.const.C_D**0.5)*pyplume.const.GAM_S*(s_inf-s_b))
 
 if __name__ == "__main__":
 

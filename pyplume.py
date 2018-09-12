@@ -29,34 +29,72 @@ class InitAmbient:
 			    print "UserWarning: You specified a pressure and depth profile which may not match assumptions used elsewhere in this model"
             self.pressure = pressure
             self.depth = depth
-        
+
+        self.z_max = z_max
         self.z = z_max - self.depth 
         self.salinity = salinity
         self.temperature = temperature
         self.rho = gsw.rho(salinity, temperature, self.pressure)
+        
+        # internal functions to return interpolated values at arbitrary depths
+        self.__f_sal_d = interp1d(self.depth, salinity)
+        self.__f_temp_d = interp1d(self.depth, temperature)
+        self.__f_rho_d = interp1d(self.depth, self.rho)
+        self.__f_pres_d = interp1d(self.depth, self.pressure)
 
-        # functions to return interpolated values at arbitrary depths
-        self.get_sal_d = interp1d(self.depth, salinity)
-        self.get_temp_d = interp1d(self.depth, temperature)
-        self.get_rho_d = interp1d(self.depth, self.rho)
-        self.get_pres_d = interp1d(self.depth, self.pressure)
+    def get_sal_d(self,x):
+        return self.__f_sal_d(x)[()]
 
-        self.get_sal_z = interp1d(self.z, salinity)
-        self.get_temp_z = interp1d(self.z, temperature)
-        self.get_rho_z = interp1d(self.z, self.rho)
-        self.get_pres_z = interp1d(self.z, self.pressure)
+    def get_temp_d(self,x):
+        return self.__f_temp_d(x)[()]
+
+    def get_rho_d(self,x):
+        return self.__f_rho_d(x)[()]
+
+    def get_pres_d(self,x):
+        return self.__f_pres_d(x)[()]
+
+    def get_sal_z(self,x):
+        return self.__f_sal_d(self.z_max - x)[()]
+
+    def get_temp_z(self,x):
+        return self.__f_temp_d(self.z_max - x)[()]
+                    
+    def get_rho_z(self,x):
+        return self.__f_rho_d(self.z_max - x)[()]
+                    
+    def get_pres_z(self,x):
+            return self.__f_pres_d(self.z_max - x)[()]
+                    
+
+def inlet(h_i,h_w,q):
+    
+    n_eff = (const.RHO_I*const.G*h_i-const.RHO_W*const.G*h_w)
+    assert n_eff > 0., "Terminus is floating - need shallower water or more ice!"
+    factor = (const.C1/(const.C2*const.C3**2.*n_eff**const.GLEN_N))**(2./7.)
+    
+    area = factor*q**(6./7.)
+    radius = (2*area/math.pi)**0.5
+    velocity = q/area
+
+    return radius, velocity
 
 
-def get_melt(Z,Y,pressure):
+def get_melt(u_inf,t_inf,s_inf,pressure):
+
     # solve the three equation melt-parameterisation quadratically
-    a = const.LAMBDA1*(const.GAMT*const.C_W-const.GAMS*const.C_I)
-    b = const.GAMS*const.C_I*(const.LAMBDA1*Y[3]-const.LAMBDA2-const.LAMBDA3*pressure+const.ICETEMP-(const.L/const.C_I))-const.GAMT*const.C_W*(Y[2]-const.LAMBDA2-const.LAMBDA3*pressure)
-    c = const.GAMS*Y[3]*(const.C_I*(const.LAMBDA2+const.LAMBDA3*pressure-const.ICETEMP)+const.L)
+    aa = const.A*(const.GAM_T*const.C_W - const.GAM_S*const.C_I)
+    bb = (const.GAM_S*const.C_I*
+             (const.A*s_inf - const.B - const.C*pressure + const.T_I 
+                - (const.L/const.C_I)) 
+             - const.GAM_T*const.C_W*(t_inf - const.B - const.C*pressure))
+    cc = const.GAM_S*s_inf*(const.C_I*(const.B + const.C*pressure - const.T_I)                             + const.L)
 
-    Sb   = (1./(2.*a))*(-b-((b**2.-4.*a*c)**0.5))
-    Tb   = const.LAMBDA1*Sb+const.LAMBDA2+const.LAMBDA3*pressure
-    mdot = const.GAMS*(const.CD**0.5)*Y[1]*(Y[3]-Sb)/Sb
-    return Sb, Tb, mdot
+    s_b = (1./(2.*aa))*(-bb-((bb**2.-4.*aa*cc)**0.5))
+    t_b = const.A*s_b+const.B+const.C*pressure
+    mdot = const.GAM_S*(const.C_D**0.5)*u_inf*(s_inf-s_b)/s_b
+
+    return t_b, s_b, mdot
 
 def plume_geometry(A,X):
 
@@ -99,31 +137,96 @@ def plume_geometry(A,X):
 
 	return C,W
 
-def detachCone(Z,Y,args):
+def Cone(Z,Y,ambient,z_max,MELT=True):
 
     # The governing set of equations to be solved for the plume
+    if Z > z_max:
+            return None
 
     # unpack args
     #[g,z_max,LAMBDA1,LAMBDA2,LAMBDA3,GAMT,GAMS,C_W,C_I,RHO_REF,ICETEMP,L] = args
 
     # initialise array for output
     YDOT = np.zeros(Y.shape)
-    Sb, Tb, mdot = get_melt(Z,Y)
-    Tambient, Sambient,rho_0 = get_TS(Z,ambient.temp,ambient.sal,ambient.depths,ambient.rho)
-
+    '''
+    if MELT:
+        t_b, s_b, mdot = get_melt(Y[1],Y[2],Y[3],ambient.get_pres_z(Z))
+    else:
+        t_b = s_b = mdot = 0.
+    '''
+    t_amb = ambient.get_temp_z(Z)
+    s_amb = ambient.get_sal_z(Z)
+    rho_0 = ambient.get_rho_z(Z)
     # approximate pressure at the current depth in Pa 
-    pressure = 1027.*const.G*(z_max-Z)
+    pressure = ambient.get_pres_z(Z)
 
     # calculate current plume density (needs pressure in decibar)
     # gives density in kg/m3
-    rho_1 = gsw.rho(Y[3],Y[2],pressure*1.e-4)
+    print pressure
+    rho_1 = gsw.rho(Y[3],Y[2],pressure)
     #rho_0 = gsw.rho(Sambient,Tambient,pressure*1.e-4)
 
     if rho_1 > rho_0:
         Y[0] = 0.
         Y[1] = 0.
 
+    #Cplume = mat
+    #print pressure.pi * Y[0]
+    #Cplume,Wplume = plume_geometry(Y[0],Y[9])
 
+    YDOT[0] = 2.*const.E_0 - Y[0]*const.G*(rho_0-rho_1)/(2.*Y[1]*Y[1]*const.RHO_REF)
+
+    YDOT[1] = -2.*const.E_0*Y[1]/Y[0] + const.G*(rho_0-rho_1)/(Y[1]*const.RHO_REF)
+
+    YDOT[2] = 2.*const.E_0*(t_amb-Y[2])/Y[0]
+
+    YDOT[3] = 2.*const.E_0*(s_amb-Y[3])/Y[0]
+
+    YDOT[4] = 0.#Wplume
+
+    YDOT[5] = t_amb-Y[5]
+    YDOT[6] = s_amb-Y[6]
+
+    YDOT[7] = 0.
+
+    #YDOT[8] = (Y[1]*Y[1]*YDOT[1]+2*Y[1]*Y[0]*YDOT[2])/(Y[1]*Y[1]*Y[0])/math.tan(Y[8])
+    #YDOT[9] = 1.0/(math.tan(Y[8]))-Y[9]
+
+    return YDOT
+
+def detachCone(Z,Y,ambient,z_max,MELT=True):
+
+    # The governing set of equations to be solved for the plume
+    if Z > z_max:
+            return None
+
+    # unpack args
+    #[g,z_max,LAMBDA1,LAMBDA2,LAMBDA3,GAMT,GAMS,C_W,C_I,RHO_REF,ICETEMP,L] = args
+
+    # initialise array for output
+    YDOT = np.zeros(Y.shape)
+
+    if MELT:
+        t_b, s_b, mdot = get_melt(Y[1],Y[2],Y[3],ambient.get_pres_z(Z))
+    else:
+        t_b = s_b = mdot = 0.
+
+    t_amb = ambient.get_temp_z(Z)
+    s_amb = ambient.get_sal_z(Z)
+    rho_0 = ambient.get_rho_z(Z)
+    # approximate pressure at the current depth in Pa 
+    pressure = ambient.get_pres_z(Z)
+
+    # calculate current plume density (needs pressure in decibar)
+    # gives density in kg/m3
+    rho_1 = gsw.rho(Y[3],Y[2],pressure)
+    #rho_0 = gsw.rho(Sambient,Tambient,pressure*1.e-4)
+
+    if rho_1 > rho_0:
+        Y[0] = 0.
+        Y[1] = 0.
+
+    Cplume = math.pi * Y[0]
     Cplume,Wplume = plume_geometry(Y[0],Y[9])
 
     YDOT[0] = 2*const.E_0*Cplume/math.sin(Y[8])+2*Wplume*mdot/(math.sin(Y[8])*Y[1])-Y[0]*const.G*(rho_0-rho_1)/(Y[1]*Y[1]*const.RHO_REF)+const.CD*Wplume
@@ -134,7 +237,7 @@ def detachCone(Z,Y,args):
 
     YDOT[3] = (const.E_0*Cplume*(Sambient-Y[3])/Y[0]+Wplume*mdot*(Sb-Y[3])/(Y[0]*Y[1])-const.GAMS*math.sqrt(const.CD)*Wplume*(Y[3]-Sb)/(Y[0]))/math.sin(Y[8])
 
-    YDOT[4] = Wplume
+    YDiOT[4] = Wplume
 
     YDOT[5] = Tambient-Y[5]
     YDOT[6] = Sambient-Y[6]
@@ -145,54 +248,25 @@ def detachCone(Z,Y,args):
     YDOT[9] = 1.0/(math.tan(Y[8]))-Y[9]
 
     return YDOT
-'''
-def get_TS(Z,temp,sal,depths,rho):
-    maxdepth = depths.max()
-    this_depth = maxdepth - Z
-    #depths = maxdepth - depths
-
-    if this_depth in depths:
-        this_temp = temp[depths==this_depth]
-        this_sal = sal[depths==this_depth]
-        this_rho = rho[depths==this_depth]
-    else:
-        for i, d in enumerate(depths[:-1]):
-            if this_depth > depths[i] and this_depth < depths[i+1]:
-                d_interval = depths[i+1]-depths[i]
-                t_interval = temp[i+1]-temp[i]
-                this_temp = temp[i]+((this_depth - depths[i])/d_interval)*(t_interval)
-                s_interval = sal[i+1]-sal[i]
-                this_sal = sal[i]+((this_depth - depths[i])/d_interval)*(s_interval)
-                r_interval = rho[i+1]-rho[i]
-                this_rho = rho[i]+((this_depth - depths[i])/d_interval)*(r_interval)
-                break
-            else:
-                this_temp = 0.
-                this_sal = 0.
-                this_rho = 0.
-
-    return this_temp, this_sal, this_rho
-'''
 
 def halfCone(Z,Y,ambient,z_max,MELT=True):
 
 	# The governing set of equations to be solved for the plume
     if Z > z_max:
-        return
-
+        return None
     # unpack args
     #[g,z_max,LAMBDA1,LAMBDA2,LAMBDA3,GAMT,GAMS,C_W,C_I,RHO_REF,ICETEMP,L] = args
 
     # initialise array for output
     YDOT = np.zeros(Y.shape)
-    print Z,ambient.get_sal_z(Z)
+    #print Z,ambient.get_sal_z(Z)
     if MELT:
-        Sb, Tb, mdot = get_melt(Z,Y,ambient.get_pres_z(Z))
+        t_b, s_b, mdot = get_melt(Y[1],Y[2],Y[3],ambient.get_pres_z(Z))
     else:
-        Sb = Tb = mdot = 0.
+        t_b = s_b = mdot = 0.
 
-    Tambient = ambient.get_temp_z(Z)
-    Sambient = ambient.get_sal_z(Z)
+    t_amb = ambient.get_temp_z(Z)
+    s_amb = ambient.get_sal_z(Z)
     rho_0 = ambient.get_rho_z(Z)
     #Tambient, Sambient, rho_0 = get_TS(Z,ambient.temp,ambient.sal,ambient.depths,ambient.rho) 
     # approximate pressure at the current depth in Pa 
@@ -203,29 +277,37 @@ def halfCone(Z,Y,ambient,z_max,MELT=True):
     # calculate current plume density (needs pressure in decibar)
     # gives density in kg/m3
     rho_1 = gsw.rho(Y[3],Y[2],pressure)
-    print rho_1,rho_0 
+    #print rho_1,rho_0 
     # check if Neutral Buoyancy is reached
-    if rho_1 > rho_0-.01:
-        print "##############################NB!#######################" 
+     
+    if rho_1 > rho_0:
         Y[0] = 0.
         Y[1] = 0.
         
     
     # Solve the plume equations and store in YDOT
-    YDOT[0] = 2.*const.E_0+4.*mdot/(math.pi*Y[1])-Y[0]*const.G*(rho_0-rho_1)/(2.*Y[1]*Y[1]*const.RHO_REF)+2.*const.CD/math.pi
+    YDOT[0] = (2.*const.E_0 + 4.*mdot/(math.pi*Y[1])
+               - Y[0]*const.G*(rho_0-rho_1)/(2.*Y[1]*Y[1]*const.RHO_REF)
+               + 2. * (const.C_D/math.pi))
 
-    YDOT[1] = -2.*const.E_0*Y[1]/Y[0]-4.*mdot/(math.pi*Y[0])+const.G*(rho_0-rho_1)/(Y[1]*const.RHO_REF)-4.*const.CD*Y[1]/(math.pi*Y[0])
+    YDOT[1] = (- 2.*const.E_0*Y[1]/Y[0] - 4.*mdot/(math.pi*Y[0])
+               + const.G*(rho_0-rho_1)/(Y[1]*const.RHO_REF)
+               - 4.*const.C_D*Y[1]/(math.pi*Y[0]))
 
-    YDOT[2] = 2.*const.E_0*(Tambient-Y[2])/Y[0]+4.*mdot*(Tb-Y[2])/(math.pi*Y[0]*Y[1])-4.*const.GAMT*(const.CD**0.5)*(Y[2]-Tb)/(math.pi*Y[0])
+    YDOT[2] = (2.*const.E_0*(t_amb-Y[2])/Y[0]
+               + 4.*mdot*(t_b-Y[2])/(math.pi*Y[0]*Y[1])
+               - 4.*const.GAM_T*(const.C_D**0.5)*(Y[2]-t_b)/(math.pi*Y[0]))
 
-    YDOT[3] = 2.*const.E_0*(Sambient-Y[3])/Y[0]+4.*mdot*(Sb-Y[3])/(math.pi*Y[0]*Y[1])-4.*const.GAMS*(const.CD**0.5)*(Y[3]-Sb)/(math.pi*Y[0])
+    YDOT[3] = (2.*const.E_0*(s_amb-Y[3])/Y[0] 
+               + 4.*mdot*(s_b-Y[3])/(math.pi*Y[0]*Y[1])
+               - 4.*const.GAM_S*(const.C_D**0.5)*(Y[3]-s_b)/(math.pi*Y[0]))
 
     YDOT[4] = 2.*Y[0]
 
-    YDOT[5] = Tambient-Y[5]
-    YDOT[6] = Sambient-Y[6]
+    YDOT[5] = t_amb - Y[5]
+    YDOT[6] = s_amb - Y[6]
 
-    YDOT[7] = mdot-Y[7]
+    YDOT[7] = mdot - Y[7]
 
     return YDOT
 
@@ -280,21 +362,18 @@ backgroundVel 	= 0.001
 
 ############################################
 
-def calc_plume(w_sg, r_sg, z_max, ambient, T_sg = 1.0e-3,S_sg = 1.0e-3, detached=False):
+def calc_plume(u_sg, r_sg, h_w, ambient, 
+               T_sg = 1.0e-3,S_sg = 1.0e-3, 
+               detached=False,MELT=True):
 
     # depth = 0 at surface, increasing down
     # z = z_max at surface, decreasing down (z = z_max - depth)
 
+    #r_sg, u_sg = inlet(h_i,h_w,q)
+    #print u_sg, r_sg
     # temporary work around:
     #if z_max > ambient.depth.max(): z_max = ambient.depth.max()
     #print z_max
-
-    # generate functions for ambient conditions
-    '''
-    get_amb_sal = interp1d(ambient.depths, ambient.sal)
-    get_amb_temp = interp1d(ambient.depths, ambient.temp)
-    get_amb_rho = interp1d(ambient.depths, ambient.rho)
-    '''
 
     #     Y is input/output vector for DLSODE
     #       Y(0) = plume thickness/radius
@@ -309,11 +388,10 @@ def calc_plume(w_sg, r_sg, z_max, ambient, T_sg = 1.0e-3,S_sg = 1.0e-3, detached
     #       Y(9) = distance of plume from ice (detatched plume only)
 
     Y = np.zeros((10,1))
-    #Y = np.zeros(7)
 
     # Initial conditions
     Y[0] = r_sg			# initial plume thickness
-    Y[1] = w_sg         # initial vertical velocity
+    Y[1] = u_sg         # initial vertical velocity
     Y[2] = T_sg         # initial temperature
     Y[3] = S_sg         # initial salinity
     Y[4] = 0.0          # integrated contact area
@@ -325,28 +403,29 @@ def calc_plume(w_sg, r_sg, z_max, ambient, T_sg = 1.0e-3,S_sg = 1.0e-3, detached
     #Y[5], Y[6],_ = get_TS(0,ambient.temp,ambient.sal,ambient.pressure,ambient.rho)
 
     # detached plume only
-    if detached:
-        Y[8] = theta_sg
-        Y[9] = 0.
-        #Y[9] = delta_y
-        Y[0] = 0.5 * math.pi * r_sg**2
+    #if detached:
+	#   Y[0] = math.pi * r_sg**2
+    #    Y[8] = theta_sg
+    #    Y[9] = 0.
+    #    #Y[9] = delta_y
+    #    Y[0] = 0.5 * math.pi * r_sg**2
         
 
     # set up the depths to iterate over
     z_step = .1
-    z_range = np.arange(0,z_max+z_step,z_step)
-    print z_range
+    z_range = np.arange(0,h_w+z_step,z_step)
+    
     # Create output arrays to be populated
-    rProfPlume = np.zeros(len(z_range))
-    wProfPlume = np.zeros(len(z_range))
-    tProfPlume = np.zeros(len(z_range))
-    sProfPlume = np.zeros(len(z_range))
-    aProfPlume = np.zeros(len(z_range))
-    tProfAmb = np.zeros(len(z_range))
-    sProfAmb = np.zeros(len(z_range))
-    mIntProfPlume = np.zeros(len(z_range))
-    thetaProfPlume = np.zeros(len(z_range))
-    distanceProfPlume = np.zeros(len(z_range))
+    rProfPlume = np.zeros(len(z_range))*np.nan
+    wProfPlume = np.zeros(len(z_range))*np.nan
+    tProfPlume = np.zeros(len(z_range))*np.nan
+    sProfPlume = np.zeros(len(z_range))*np.nan
+    aProfPlume = np.zeros(len(z_range))*np.nan
+    tProfAmb = np.zeros(len(z_range))*np.nan
+    sProfAmb = np.zeros(len(z_range))*np.nan
+    mIntProfPlume = np.zeros(len(z_range))*np.nan
+    thetaProfPlume = np.zeros(len(z_range))*np.nan
+    distanceProfPlume = np.zeros(len(z_range))*np.nan
 
     # Set intial conditions
     rProfPlume[0] = Y[0]
@@ -358,9 +437,9 @@ def calc_plume(w_sg, r_sg, z_max, ambient, T_sg = 1.0e-3,S_sg = 1.0e-3, detached
     sProfAmb[0] = Y[6]
     mIntProfPlume[0] = Y[7]
 
-    if detached:
-        thetaProfPlume[0] = Y[8]
-        distanceProfPlume[0] = Y[9]
+    #if detached:
+    #    thetaProfPlume[0] = Y[8]
+    #    distanceProfPlume[0] = Y[9]
     #out = odeint(halfCone,Y,depths)
     
     #embed()
@@ -369,12 +448,12 @@ def calc_plume(w_sg, r_sg, z_max, ambient, T_sg = 1.0e-3,S_sg = 1.0e-3, detached
 
     # Select the solveri
     if detached:
-        solver = ode(detachCone).set_integrator('lsoda', atol=1.e-5, rtol=1.e-5)
+        solver = ode(Cone).set_integrator('lsoda', atol=1.e-5, rtol=1.e-5)
     else:
-        solver = ode(halfCone).set_integrator('lsoda', atol=1.e-8, rtol=1.e-8)#,nsteps=1000)#,min_step=0.1)#lsoda
-    MELT = False
+        solver = ode(halfCone).set_integrator('lsoda', atol=1.e-5, rtol=1.e-5)#,nsteps=1000)#,min_step=0.1)#lsoda
+    
     # set initial conidtions in solver with Y array, z=0 and args
-    solver.set_initial_value(Y,0).set_f_params(ambient,z_max,MELT)
+    solver.set_initial_value(Y,0).set_f_params(ambient,h_w,MELT)
 #[const.G,z_max,const.LAMBDA1,const.LAMBDA2,const.LAMBDA3,const.GAMT,const.GAMS,const.C_W,const.C_I,const.RHO_REF,const.ICETEMP,const.L])
 
 
@@ -383,9 +462,9 @@ def calc_plume(w_sg, r_sg, z_max, ambient, T_sg = 1.0e-3,S_sg = 1.0e-3, detached
     # iterate over depths while the solver completes successfully
     # and we are below the maximum height
     i = 0
-    while solver.successful() and solver.t < z_max and ~np.isnan(solver.y[0]):
+    while solver.successful() and solver.t < h_w and solver.y[0]>0.:
         i += 1
-        print solver.t,z_range[i]
+        #print solver.t,z_range[i]
         solver.integrate(z_range[i])
         #solver.integrate(solver.t+z_step)
         #print solver.y
@@ -401,7 +480,7 @@ def calc_plume(w_sg, r_sg, z_max, ambient, T_sg = 1.0e-3,S_sg = 1.0e-3, detached
 
         thetaProfPlume[i] = solver.y[8]
         distanceProfPlume[i] = solver.y[9]
-        print tProfPlume[i],sProfPlume[i]
+        #print tProfPlume[i],sProfPlume[i]
     #if gsw
 
     return [z_range,rProfPlume,wProfPlume,tProfPlume,sProfPlume,aProfPlume,tProfAmb,sProfAmb,
