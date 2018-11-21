@@ -56,7 +56,8 @@ class Ambient(object):
             self.depth = depth
         else:
             if np.any(depth != pressure/(1027.*9.81*1.e-4)):
-			    print "UserWarning: You specified a pressure and depth profile which may not match assumptions used elsewhere in this model"
+                print("UserWarning: You specified a pressure and depth profile \
+                which may not match assumptions used elsewhere in this model")
             self.pressure = pressure
             self.depth = depth
 
@@ -166,11 +167,11 @@ def get_melt(u_inf,t_inf,s_inf,pressure):
 def wallPlume(z, y, ambient, z_max, MELT=True):
     """Solve the equations for a wallPlume
 
-	wallPlume formulation (halfCone in Cowton et al.)
+    wallPlume formulation (halfCone in Cowton et al.)
     See: Cowton et al. (2015) DOI: 10.1002/2014JC010324
     """
 
-	# this was a safety check at some point - is it still needed?!
+    # this was a safety check at some point - is it still needed?!
     if z > z_max:
         return None
 
@@ -254,15 +255,15 @@ def calc_plume(u_0, b_0, h_w, ambient, t_0 = 1.0e-3, s_0 = 1.0e-3, MELT=True):
     # TODO: The initialisation could still be made a bit tider/clearer
 
     plume_variables = ['b_p', 	# plume radius (m)
-					   'u_p', 	# vertical velocity (m/s)
-		               't_p', 	# temperature (deg C)
-             		   's_p', 	# salinity (kg/m3)
+                       'u_p', 	# vertical velocity (m/s)
+                       't_p', 	# temperature (deg C)
+                       's_p', 	# salinity (kg/m3)
                        'm_p',   # melt rate (m/s)
-             		   't_a', 	# ambient salinity (kg/m3)
-             		   's_a', 	# ambient temperature (deg C)
-					  ]
+                       't_a', 	# ambient salinity (kg/m3)
+                       's_a', 	# ambient temperature (deg C)
+                      ]
 
-	# Create output dictionary containting all the keys in the plume variables
+    # Create output dictionary containting all the keys in the plume variables
     # list
     plume = {key: [] for key in plume_variables}
     
