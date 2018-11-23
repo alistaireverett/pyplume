@@ -49,15 +49,24 @@ class Ambient(object):
         if depth is None and pressure is None:
             raise ValueError("Must pass either pressure or depth as an argument to Ambient")
         elif depth is None and pressure is not None:
+            if pressure[0] != 0.:
+                raise ValueError("Profile must start from the surface for the " \
+                "interpolation, try copying the minimum depth values to be the " \
+                "surface values")
             self.pressure = pressure
             self.depth = pressure/(1027.*9.81*1.e-4)
         elif depth is not None and pressure is None:
+            if depth[0] != 0:
+                raise ValueError("Profile must start from the surface for the " \
+                "interpolation, try copying the minimum depth values to be the " \
+                "surface values")
+
             self.pressure = depth*(1027.*9.81*1.e-4)
             self.depth = depth
         else:
             if np.any(depth != pressure/(1027.*9.81*1.e-4)):
-                print("UserWarning: You specified a pressure and depth profile \
-                which may not match assumptions used elsewhere in this model")
+                print("UserWarning: You specified a pressure and depth profile "\
+                "which may not match assumptions used elsewhere in this model")
             self.pressure = pressure
             self.depth = depth
 
