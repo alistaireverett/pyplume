@@ -200,8 +200,8 @@ def wallPlume(z, y, ambient, z_max, MELT=True):
     
     # check if Neutral Buoyancy is reached, if so this forces values to be nan 
     if rho_p > rho_a:
-        y[0] = 0.
-        y[1] = 0.
+        y[0] = np.nan
+        y[1] = np.nan
         
     # Solve the plume equations and store in ydot
     ydot[0] = (2.*const.E_0 + 4.*mdot/(math.pi*y[1])
@@ -294,7 +294,7 @@ def calc_plume(u_0, b_0, h_w, ambient, t_0 = 1.0e-3, s_0 = 1.0e-3, MELT=True):
     # iterate over depths while the solver completes successfully
     # and we are below the maximum height
     i = 0
-    while solver.successful() and solver.t < h_w and solver.y[0] > 0.:
+    while solver.successful() and solver.t < h_w and ~np.isnan(solver.y[0]):
         i += 1
 
         # do the integration
@@ -305,6 +305,10 @@ def calc_plume(u_0, b_0, h_w, ambient, t_0 = 1.0e-3, s_0 = 1.0e-3, MELT=True):
 
     # add z_range into output dict
     plume['z'] = z_range
+
+    # populate rest of dict with nans if they solver didn't reach the surface
+    for key in plume_variables:
+        plume[key] += [np.nan]*(len(plume['z'])-len(plume[key]))
 
     return plume 
     
