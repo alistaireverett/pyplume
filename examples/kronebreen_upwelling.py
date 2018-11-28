@@ -1,253 +1,168 @@
 #/usr/bin/env python
 
-import pyplume
 import math
 import numpy as np
-import matplotlib.pyplot as plt
-import const
-import gsw
-import ambient
-import csv
+import pandas as pd
 import datetime as dt
+
+import gsw
+from pyplume import pyplume
 
 from IPython import embed
 
-def mlab2datetime(num):
-    day = dt.datetime.fromordinal(int(num))
-    dayfrac = dt.timedelta(days=num%1) - dt.timedelta(days=366)
-    return day + dayfrac
-
 # Variables:
 
-# to keep
-
-h_w = 70.          # water depth
-h_i = 100.          # ice depth
+h_w = 70.	# water depth at the terminus (ie. how high the plume will rise)
+h_i = 100.	# ice thickness (used to calculate effective pressure for inlet conditions)
 
 # Ambient T/S profile
 
-new_amb = pyplume.InitAmbient(h_w,ambient.sal,ambient.temp,
-                                pressure=ambient.pressure)
+# load a csv containing columns for 
+# z (depth - metres) 
+# SA (Absolute Salinity - Kg/m3)
+# CT (Conservative temperature - C)
 
-# load discharges
-times = []
-disch_flux = []
+# This one was generated using the script in the ctdtools repo here:
+# https://github.com/alistaireverett/ctdtools/blob/master/examples/proc_cnv_short.py
 
-with open('discharge_kronebreen.csv') as csvfile:
-    readcsv = csv.reader(csvfile,delimiter=';')
-    for row in readcsv:
-        times.append(float(row[0]))
-        disch_flux.append(float(row[1]))
+ambient = pd.read_csv('ambient.csv',';')
 
-times = np.array(times)
-disch_flux = np.array(disch_flux)
+##########################
+# start hack
+##########################
 
-str_times = [mlab2datetime(t).isoformat(' ') for t in times]
+# This is a short fix because our ambient profile doesn't start at zero
+# this should be moved into the ctdtools preprocessing or into the InitAmbient class
+# ignore this if your ambient profile already starts from zero
 
-g_dash = []
-nb_depth =[]
-vol_flux = []
-momentum = []
-buoyancy = []
-surface = []
-ent_flux = []
+# TODO z should really be renamed to depth (at the start)
 
-count=0
+# copy the top row
+shallowest_data = pd.DataFrame(ambient.iloc[0])
 
-cut = 10000
-
-for t,q in zip(times,disch_flux):
-
-    print "count: ",count,"time: ",t
-    count+=1
-    
-    if count>cut: break
-    if q < .1:
-        g_dash.append(0)
-        nb_depth.append(0)
-        vol_flux.append(0)
-        momentum.append(0)
-        buoyancy.append(0)
-        surface.append(0)
-        ent_flux.append(0)
-        continue
-
-    r, u = pyplume.inlet(h_i,h_w,q)
-    out = pyplume.calc_plume(u,r, h_w, new_amb,MELT=True)
-    
-    [z,r_p,w_p,t_p,s_p,a_p,t_a,s_a,melt,theta,distance] = out
-
-    this_nb_depth = max(z[~np.isnan(r_p)])
-
-    if this_nb_depth == max(z):
-        plume_density = gsw.rho(s_p[-1],t_p[-1],
-                                new_amb.get_pres_z(max(z)))
-        amb_density = new_amb.get_rho_z(max(z))
-        this_vol_flux = 0.5*math.pi*r_p[-1]**2.*w_p[-1]
-        this_g_dash = -const.G*((plume_density-amb_density)/const.RHO_REF)
-        this_momentum = 0.5*math.pi*r_p[-1]**2.*w_p[-1]**2.
-        this_buoyancy = 0.5*math.pi*r_p[-1]**2.*w_p[-1]*this_g_dash
-        this_surface = 1
-        this_ent_flux = this_vol_flux - q
-    else:
-        this_vol_flux = 0.
-        this_g_dash = 0.
-        this_momentum = 0.
-        this_buoyancy = 0.
-        this_surface = 0
-        this_ent_flux = 0.
-
-    g_dash.append(this_g_dash)	
-    nb_depth.append(this_nb_depth)   
-    vol_flux.append(this_vol_flux)
-    momentum.append(this_momentum)
-    buoyancy.append(this_buoyancy)
-    surface.append(this_surface)
-    ent_flux.append(this_ent_flux)
-'''
-if vol_flux > 1.e-3:
-    entrained_flux = np.array(vol_flux) - disch_flux[:cut]
+# set the depth to zero, include a catch 'if' to check whether z is a column or index
+if 'z' in shallowest_data.index:
+    shallowest_data.loc['z'] = 0.
 else:
-    entrained_flux = 0.
-'''
+    shallowest_data.columns = [0.]
+
+# append back onto ambient data frame
+ambient = pd.concat([pd.DataFrame(shallowest_data).T,ambient],ignore_index=True)
+
+##########################
+# end hack
+##########################
+
+# create an ambient profile object from the temp/sal data
+new_amb = pyplume.Ambient(h_w, ambient['SA'], ambient['CT'], depth=ambient['z'])
 
 
+# Load discharges
 
-# disharge is m3/s for a 3 hour period
-entrained_vol = np.array(ent_flux) * 60. * 60. * 3.
-#cumul_ent_vol = [] # np.cumsum(entrained_vol)
-#for yr in np.unique(str_times.year):
-#   cumul_ent_vol = np.concatenate((cumul_disch_vol,np.cumsum(this[this[:,0]==yr,1])))
-#for yr in range(2010,2017,1):
-#    this_yr = dt.datetime.toordinal(dt.date(yr,1,1))
-#    cumul_ent_vol = np.concatenate((cumul_ent_vol,np.cumsum(entrained_vol[times[:cut]<this_yr])))
+# These are from the model presented in Pramanik et al. (2018) DOI: 10.1017/jog.2018.80
+# Contains the following columns:
+# Year, Month, Day, Hour, Discharge (m3/s)
 
-disch_vol = disch_flux[:cut] * 60. * 60. * 3.
-#cumul_disch_vol = [] # np.cumsum(disch_vol)
-#for yr in range(2010,2017,1):
-#    this_yr = dt.datetime.toordinal(dt.date(yr,1,1))
-#    cumul_disch_vol = np.concatenate((cumul_disch_vol,np.cumsum(disch_vol[times[:cut]<this_yr])))
+disch_data = pd.read_csv('kronebreen_runoff.csv',';')
 
-np.savez('KbPlume',[str_times,disch_flux,surface,ent_flux,
-                    disch_vol,entrained_vol,g_dash,nb_depth,vol_flux,momentum,buoyancy,surface])
- 
+disch_data = disch_data[:100]
 
-with open('kb_upwelling.csv', 'wb') as csvout:
-    print 'writing'
-    csvwriter = csv.writer(csvout, delimiter=',')
-    csvwriter.writerow(['Time','Discharge Flux (m3/s)','Surface?','Entrained Flux (m3/s)',
-                        'Runoff Vol (m3)', 'Entrained Vol (m3)',
-                        #'Cumulative Runoff (m3)','Cumulative Entrained Vol (m3)'
-                        ])
-    for row in zip(str_times,disch_flux,surface,ent_flux,
-                    disch_vol,entrained_vol,
-                    #cumul_disch_vol,cumul_ent_vol
-                    ):
-        csvwriter.writerow(row)
+def to_dt(x):
+    """
+    Function to convert Y/M/D/H columns to python datetime object
 
-plt.figure()
-plt.title('Discharge vs entrainment')
-plt.plot(disch_flux,ent_flux)
+    """
+    return dt.datetime(int(x['year']),int(x['month']),int(x['day']),int(x['hour']))
 
-plt.figure()
-plt.title('Discharge')
-plt.plot(times[:cut],disch_flux[:cut])
+# Add pandas datetime column using date conversion function to DataFrame
+disch_data['date'] = disch_data.apply(to_dt,axis=1)
 
-plt.figure()
-plt.title('Volume Flux')
-plt.plot(times[:cut],vol_flux[:cut])
+# Calculate inlet radius and velocity from discharge (for every discharge)
+# Method follows Slater et al. (2015) / Schoof (2010)
+rad, vel = pyplume.inlet(h_i,h_w,disch_data['discharge'])
 
-plt.figure()
-plt.title("g'")
-plt.plot(times[:cut],g_dash)
+# Add to new columns of DataFrame
+disch_data['src_radius'] = rad
+disch_data['src_vel'] = vel
 
-plt.figure()
-plt.title('Buoyancy')
-plt.plot(times[:cut],buoyancy)
+# Getting to the good bit
+# Now we can loop through all of the inlet properties and calculate a steady state
+# solution for each given discharge (now defined by inlet radius and velocity)
+res_data = []
+for r, u in disch_data[["src_radius","src_vel"]].values:
+	# The key line -  get steady state plume solution for given inputs
+    out = pyplume.calc_plume(u, r, h_w, new_amb, MELT=True)
 
-plt.figure()
-plt.title('Momentum')
-plt.plot(times[:cut],momentum)
+    '''
+	# build dictionary from results - 
+	# can (and should) be moved into the calc_plume func
+    results_dict = {'z_range': out[0],
+                    'rProfPlume': out[1],
+                    'wProfPlume': out[2],
+                    'tProfPlume': out[3],
+                    'sProfPlume': out[4],
+                    'aProfPlume': out[5],
+                    'tProfAmb': out[6],
+                    'sProfAmb': out[7],
+                    'mIntProfPlume': out[8],
+                    'thetaProfPlume': out[9],
+                    'distanceProfPlume': out[10]}
+    '''
+    res_data.append(out)
 
-plt.figure()
-plt.title('Neutral Buoyancy Depth')
-plt.plot(times[:cut],nb_depth)
+### Now post process the results
 
-plt.figure()
-plt.title('Discharge')
-plt.plot(times[:cut],disch_flux[:cut])
+# convert results to dataframe
+#res_df = pd.DataFrame(res_data, index = disch_data.index)
 
-plt.figure()
-plt.title('Reached the surface?')
-plt.plot(times[:cut],surface)
+# append to discharge dataframe
+disch_data['results'] = res_data#res_df
 
-plt.show()
-#plt.plot(s_a,d,'--')
-#plt.show()
-#plt.figure()
-#plt.plot(s_a,z)
+# option to save the results now
+disch_data.to_pickle('temp_save.pkl')
 
-# plot some things
-f,ax = plt.subplots(1,5,sharey=True, figsize=(10,5))
-'''
-if np.any(np.isnan(r_p)):
-    nb_depth = max(z[~np.isnan(r_p)])
-    print "Terminal Height: ", nb_depth
-    print "plume density: ",gsw.rho(s_p[z==nb_depth],t_p[z==nb_depth],                                            new_amb.get_pres_z(nb_depth))
-    print "ambient density: ",new_amb.get_rho_z(nb_depth)
+# calculate plume density profile from temp, sal and depth
+disch_data['plume_density'] = disch_data['results'].apply(
+                                lambda x: gsw.rho(x['s_p'],
+                                                  x['t_p'],
+                                                  new_amb.get_pres_z(x['z'])))
+# Define a function to extract volume a given 
+def vol_flux_at_depth(data, height_above_source):
+    vol_flux = 0.5 * math.pi * data['b_p']**2. *data['u_p']
+    vol_flux_out = vol_flux[data['z']==height_above_source]
+    return vol_flux_out[0]
 
-else:
-    plume_density = gsw.rho(s_p[-1],t_p[-1],
-                            new_amb.get_pres_z(max(z)))
-    amb_density = new_amb.get_rho_z(max(z))
-    print "plume density: ",plume_density
-    print "ambient density: ",amb_density
-    print "ref density: ",const.RHO_REF
-    print "Excess buoyancy: ", const.G*((plume_density-amb_density)/const.RHO_REF)
-    nb_depth = np.nan
-''' 
-#ax[0].plot(rProfPlume,depths,color='r')
-ax[0].plot(r_p,z,color='r')
-ax[0].set_title('Radius')
-ax[0].set_xlim(0, np.nanmax(r_p)*1.1)
-ax[0].set_ylim(0,h_w)
-ax[0].set_xlabel('(m)')
+# apply function to get vol flux 1 metre below the surface
+disch_data['vol_flux'] = disch_data['results'].apply(vol_flux_at_depth, 
+													 height_above_source = h_w - 1.)
 
-ax[0].plot([0, np.nanmax(r_p)*1.1], [max(z[~np.isnan(r_p)]),max(z[~np.isnan(r_p)])])
-ax[0].annotate('NB = %sm'%max(z[~np.isnan(r_p)]),xy=(np.nanmax(r_p)*0.05,max(z[~np.isnan(r_p)])+1))
+# calculate difference between surface flux and discharge as entrained flux
+disch_data['ent_flux'] = disch_data['vol_flux'] - disch_data['discharge']
 
-ax[1].plot(w_p,z,color='b')
-ax[1].set_title('Velocity')
-ax[1].set_xlim(0, np.nanmax(w_p)*1.1)
-ax[1].set_xlabel('(m/s)')
+# calc_plume returns NaN if the plume is above the neutral buoyancy height
+# so extract nb_height as the max height where the plume radius is not NaN
+disch_data['nb_depth'] = disch_data['results'].apply(lambda x: max(x['z'][~np.isnan(x['b_p'])]))
 
-ax[2].plot(t_p,z,color='g')
-ax[2].plot(t_a,z,ls='--',color='g')
-ax[2].set_title('Temp')
-ax[2].set_xlim(0, np.nanmax(t_p)*1.1)
-ax[2].set_xlabel('($^o$C)')
+### Write results out to a .csv
 
-ax[3].plot(s_p,z,color='k')
-ax[3].plot(s_a,z,ls='--',color='k')
-ax[3].set_title('Sal')
-ax[3].set_xlim(0, np.nanmax(s_p)*1.1)
-ax[3].set_xlabel('(g/kg)')
+# Pull relevant columns from disch_data dataframe
+csv_out = disch_data[['year','month','day','hour','discharge','ent_flux','nb_depth']]
 
-ax[4].plot(melt*3600.*24.,z,color='k')
-#ax[4].plot(2.*rProfPlume*mIntProfPlume,depths,ls='--',color='k')
-ax[4].set_title('Melt')
-ax[4].set_xlim(0, np.nanmax(melt*3600.*24.)*1.1)
-ax[4].set_xlabel('(m/d)')
+# Rename columns to something a bit friendlier
+csv_out.rename(columns={'discharge':	'Discharge Flux (m3/s)',
+						'ent_flux':		'Entrained Flux (m3/s)',
+						'nb_depth': 	'Plume Height (m)'},
+						inplace=True)
 
+# Add total volumes (remember, inputs are at 6-hour intervals) 
+csv_out['Discharge Vol (m3)'] = csv_out['Discharge Flux (m3/s)'] * 60. * 60. * 6.
 
+csv_out['Entrained Vol (m3)'] = csv_out['Entrained Flux (m3/s)'] * 60. * 60. * 6.
 
+csv_out.fillna(0.,inplace=True)
 
-############################################
+csv_out.to_csv('upwelling_results.csv', ';')
 
-plt.savefig('iceplume.jpg')
-
-plt.show()
-
-
-
+# save data in full for future analysis
+disch_data.to_pickle('upwelling.pkl')
 
