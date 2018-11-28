@@ -1,5 +1,9 @@
 #/usr/bin/env python
 
+############################################################################################
+#### !!!! THIS CODE IS PROBABLY BROKEN AT THE MOMENT, BUT WILL BE UPDATED SHORTLY !!!! #####
+############################################################################################
+
 import math
 import numpy as np
 import pandas as pd
