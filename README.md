@@ -1,19 +1,14 @@
 # pyplume v1.0
 
-Pyplume calculates a numerical solution to the equations formulated for a
-point source plume released at the base of a vertical wall. The code includes
-capabilities for calculating the melt rate in the case where the vertical wall
-is made of ice.
+Pyplume calculates a numerical solution to the equations formulated for a point source plume released at the base of a vertical wall. The code includes capabilities for calculating the melt rate in the case where the vertical wall is made of ice.
 
-See the examples and docstrings for more details on how to use pyplume. The links below will launch interactive jupyter notebooks with Binder so you can see how the code
-works and experiment with the examples.
+See the examples and docstrings for more details on how to use pyplume. The links below will launch interactive jupyter notebooks with [Binder](https://mybinder.readthedocs.io/en/latest/) so you can see how the code works and experiment with the examples. [Here's a link](https://medium.com/codingthesmartway-com-blog/getting-started-with-jupyter-notebook-for-python-4e7082bd5d46#f8b4) explaining how to interact with jupyter notebooks if you haven't used them before.
 
 ## Examples:
 
 ### Simple plume
 
-A minimal example demonstrating a simple case to use pyplume with linear ambient
-temperature and salinity profiles and plot the results.
+A minimal example demonstrating a simple case to use pyplume with linear ambient temperature and salinity profiles and plot the results.
 
 [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/alistaireverett/pyplume/master?filepath=examples%2Fsimple_plume.ipynb)
 
