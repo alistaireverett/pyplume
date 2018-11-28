@@ -8,6 +8,8 @@ is made of ice.
 See the examples and docstrings for more details on how to use pyplume. The links below will launch interactive jupyter notebooks with Binder so you can see how the code
 works and experiment with the examples.
 
+## Examples:
+
 ### Simple plume
 
 A minimal example demonstrating a simple case to use pyplume with linear ambient
