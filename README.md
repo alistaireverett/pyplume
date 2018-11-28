@@ -24,9 +24,7 @@ analytical solution.
 
 ### Kronebreen Upwelling
 
-An example looking at how to run pyplume using a year long time series of
-discharges calculated using a surface mass balance model and ambient conditions
-taken from CTD casts.
+The code used in Halbach et al. (20??) *[add link]* to calculate entrainment at Kronebreen throughout 2017 using pyplume. The model is forced with a year long timeseries of discharges calculated using a surface mass balance model [Pramanik et al. (2018)](https://doi.org/10.1017/jog.2018.80) and ambient conditions taken from CTD casts close to the terminus.
 
 ***To be added soon***
 
