@@ -29,47 +29,19 @@ h_i = 100.	# ice thickness (used to calculate effective pressure for inlet condi
 # This one was generated using the script in the ctdtools repo here:
 # https://github.com/alistaireverett/ctdtools/blob/master/examples/proc_cnv_short.py
 
-ambient = pd.read_csv('ambient.csv',';')
-
-##########################
-# start hack
-##########################
-
-# This is a short fix because our ambient profile doesn't start at zero
-# this should be moved into the ctdtools preprocessing or into the InitAmbient class
-# ignore this if your ambient profile already starts from zero
-
-# TODO z should really be renamed to depth (at the start)
-
-# copy the top row
-shallowest_data = pd.DataFrame(ambient.iloc[0])
-
-# set the depth to zero, include a catch 'if' to check whether z is a column or index
-if 'z' in shallowest_data.index:
-    shallowest_data.loc['z'] = 0.
-else:
-    shallowest_data.columns = [0.]
-
-# append back onto ambient data frame
-ambient = pd.concat([pd.DataFrame(shallowest_data).T,ambient],ignore_index=True)
-
-##########################
-# end hack
-##########################
+amb_df = pd.read_csv('ambient.csv',';')
 
 # create an ambient profile object from the temp/sal data
-new_amb = pyplume.Ambient(h_w, ambient['SA'], ambient['CT'], depth=ambient['z'])
+ambient = pyplume.Ambient(h_w, amb_df['SA'], amb_df['CT'], depth=amb_df['depth'])
 
 
 # Load discharges
 
-# These are from the model presented in Pramanik et al. (2018) DOI: 10.1017/jog.2018.80
+# These are from a surface mass balance model, see Halbach et al. (submitted).
 # Contains the following columns:
 # Year, Month, Day, Hour, Discharge (m3/s)
 
 disch_data = pd.read_csv('kronebreen_runoff.csv',';')
-
-disch_data = disch_data[:100]
 
 def to_dt(x):
     """
@@ -95,32 +67,18 @@ disch_data['src_vel'] = vel
 res_data = []
 for r, u in disch_data[["src_radius","src_vel"]].values:
 	# The key line -  get steady state plume solution for given inputs
-    out = pyplume.calc_plume(u, r, h_w, new_amb, MELT=True)
+    out = pyplume.calc_plume(u, r, h_w, ambient, MELT=True)
 
-    '''
-	# build dictionary from results - 
-	# can (and should) be moved into the calc_plume func
-    results_dict = {'z_range': out[0],
-                    'rProfPlume': out[1],
-                    'wProfPlume': out[2],
-                    'tProfPlume': out[3],
-                    'sProfPlume': out[4],
-                    'aProfPlume': out[5],
-                    'tProfAmb': out[6],
-                    'sProfAmb': out[7],
-                    'mIntProfPlume': out[8],
-                    'thetaProfPlume': out[9],
-                    'distanceProfPlume': out[10]}
-    '''
+    # convert the lists in the returned dict to numpy arrays 
+    out = {k: np.array(out[k]) for k in out.keys()}
+
+    # append to results
     res_data.append(out)
 
 ### Now post process the results
 
-# convert results to dataframe
-#res_df = pd.DataFrame(res_data, index = disch_data.index)
-
 # append to discharge dataframe
-disch_data['results'] = res_data#res_df
+disch_data['results'] = res_data
 
 # option to save the results now
 disch_data.to_pickle('temp_save.pkl')
@@ -129,7 +87,8 @@ disch_data.to_pickle('temp_save.pkl')
 disch_data['plume_density'] = disch_data['results'].apply(
                                 lambda x: gsw.rho(x['s_p'],
                                                   x['t_p'],
-                                                  new_amb.get_pres_z(x['z'])))
+                                                  ambient.get_pres_z(x['z'])))
+
 # Define a function to extract volume a given 
 def vol_flux_at_depth(data, height_above_source):
     vol_flux = 0.5 * math.pi * data['b_p']**2. *data['u_p']
