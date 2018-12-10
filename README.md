@@ -13,7 +13,7 @@ link](https://medium.com/codingthesmartway-com-blog/getting-started-with-jupyter
 explaining how to interact with jupyter notebooks if you haven't used them
 before.
 
-The first release (v1.0.0) contains the code used in Halbach et al. (submitted).
+The first release (v0.1.0) contains the code used in Halbach et al. (submitted).
 Example 3 is a simplified, interactive verion of the code used in the paper,
 with a synthetic discharge timeseries. The full code used in the paper is
 available in the examples folder as
