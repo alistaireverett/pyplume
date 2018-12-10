@@ -19,11 +19,12 @@ analytical solution.
 
 [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/alistaireverett/pyplume/master?filepath=examples%2Fpyplume_vs_analytical.ipynb)
 
-### Kronebreen Upwelling
+### Discharge upwelling timeseries
 
-The code used in Halbach et al. (20??) *[add link]* to calculate entrainment at Kronebreen throughout 2017 using pyplume. The model is forced with a year long timeseries of discharges calculated using a surface mass balance model ([Pramanik et al., 2018](https://doi.org/10.1017/jog.2018.80)) and ambient conditions taken from CTD casts close to the terminus.
+An example to demonstrates how pyplume can be used with discharge timeseries to
+calculate how the plume behaves on seasonal timescales. The example also demonstrates a method which can be used to estimate plume driven upwelling, as described in Halbach et al. (submitted).
 
-***To be added soon***
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/alistaireverett/pyplume/master?filepath=examples%2Fupwelling_timeseries.ipynb)
 
 More examples and documentation will be added shortly.
 
