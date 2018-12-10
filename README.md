@@ -50,10 +50,10 @@ More examples and documentation will be added in future.
 ## Acknowledgements
 
 The code was developed by Alistair Everett with inspiration from Tom Cowton's
-iceplume Fortran model [Cowton et al.
-(2015)](https://doi.org/10.1002/2014JC010324). Some of this development work was
-done as part of the TIGRIF (RCN project number: 243808/E40) and TW-ICE research
-projects at thei Norwegian Polar Institute.
+iceplume Fortran model [(Cowton et al.,
+2015)](https://doi.org/10.1002/2014JC010324). Some of this development work
+was done as part of the TIGRIF (RCN project number: 243808/E40) and TW-ICE
+research projects at the Norwegian Polar Institute.
 
 This code relies upon many previous studies which derived the solutions and
 equations built into this model, references have been included throughout the code.
