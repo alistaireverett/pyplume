@@ -1,5 +1,7 @@
 # pyplume
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.2198959.svg)](https://doi.org/10.5281/zenodo.2198959)
+
 Pyplume calculates a numerical solution to the equations formulated for a point
 source plume released at the base of a vertical wall. The code includes
 capabilities for calculating the melt rate in the case where the vertical wall
