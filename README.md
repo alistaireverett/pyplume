@@ -32,7 +32,8 @@ temperature and salinity profiles and plot the results.
 ### 2. Comparison to analytical solution
 
 A slightly more detailed look at using pyplume and comparing the results to an
-analytical solution.
+analytical solution assuming uniform ambient temperature and salinity, with the
+inlet Richardson number set to $\Gamma_0=1$.
 
 [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/alistaireverett/pyplume/master?filepath=examples%2Fpyplume_vs_analytical.ipynb)
 
