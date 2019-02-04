@@ -145,11 +145,11 @@ def inlet(h_i, h_w, q):
     return radius, velocity
 
 
-def get_melt(u_inf,t_inf,s_inf,pressure):
+def get_melt(vel_inf,t_inf,s_inf,pressure):
     """Quadratic solution to the three equation melt parameterisation
 
     Args:
-        u_inf (float) :     farfield velocity (m/s)
+        vel_inf (float) :     farfield velocity (m/s)
         t_inf (float) :     farfield temperature (deg C)
         s_inf (float) :     farfield salinity (kg/m3)
         pressure (float) :  pressure (Pa)
@@ -169,7 +169,7 @@ def get_melt(u_inf,t_inf,s_inf,pressure):
 
     s_b = (1./(2.*aa))*(-bb-((bb**2.-4.*aa*cc)**0.5))
     t_b = const.A*s_b+const.B+const.C*pressure
-    mdot = const.GAM_S*(const.C_D**0.5)*u_inf*(s_inf-s_b)/s_b
+    mdot = const.GAM_S*(const.C_D**0.5)*vel_inf*(s_inf-s_b)/s_b
 
     return t_b, s_b, mdot
 
@@ -236,12 +236,12 @@ def wallPlume(z, y, ambient, z_max, MELT=True):
 
     return ydot
 
-def calc_plume(u_0, b_0, h_w, ambient, t_0 = 1.0e-3, s_0 = 1.0e-3, MELT=True):
+def calc_plume(w_0, b_0, h_w, ambient, t_0 = 1.0e-3, s_0 = 1.0e-3, MELT=True):
     """Solve the plume equations for the specified initial conditions
 
 
     Args:
-        u_0 (float) :               velocity at the source (m/s)
+        w_0 (float) :               velocity at the source (m/s)
         b_0 (float) :               radius at the source (m)
         h_w (float) :               total water column depth (m)
         ambient (Ambient object) :  containing temperature and salinity profiles
@@ -253,7 +253,7 @@ def calc_plume(u_0, b_0, h_w, ambient, t_0 = 1.0e-3, s_0 = 1.0e-3, MELT=True):
         plume (dict) : dictionary containing:
                             'z'     height above source (m)
                             'b_p'   plume radius (m)
-                            'u_p'   vertical velocity (m/s)
+                            'w_p'   vertical velocity (m/s)
                             't_p'   temperature (deg C)
                             's_p'   salinity (kg/m3)
                             'm_p'   melt rate (m/s)
@@ -264,7 +264,7 @@ def calc_plume(u_0, b_0, h_w, ambient, t_0 = 1.0e-3, s_0 = 1.0e-3, MELT=True):
     # TODO: The initialisation could still be made a bit tider/clearer
 
     plume_variables = ['b_p', 	# plume radius (m)
-                       'u_p', 	# vertical velocity (m/s)
+                       'w_p', 	# vertical velocity (m/s)
                        't_p', 	# temperature (deg C)
                        's_p', 	# salinity (kg/m3)
                        'm_p',   # melt rate (m/s)
@@ -278,7 +278,7 @@ def calc_plume(u_0, b_0, h_w, ambient, t_0 = 1.0e-3, s_0 = 1.0e-3, MELT=True):
     
     # Populate the output dict with the initial conditions
     plume['b_p'].append(b_0)
-    plume['u_p'].append(u_0)
+    plume['w_p'].append(w_0)
     plume['t_p'].append(t_0)
     plume['s_p'].append(s_0)
     plume['m_p'].append(0.)
