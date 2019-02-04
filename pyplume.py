@@ -253,7 +253,7 @@ def calc_plume(u_0, b_0, h_w, ambient, t_0 = 1.0e-3, s_0 = 1.0e-3, MELT=True):
         plume (dict) : dictionary containing:
                             'z'     height above source (m)
                             'b_p'   plume radius (m)
-                            'u_p'   vertical velocity (m/s)
+                            'w_p'   vertical velocity (m/s)
                             't_p'   temperature (deg C)
                             's_p'   salinity (kg/m3)
                             'm_p'   melt rate (m/s)
@@ -264,7 +264,7 @@ def calc_plume(u_0, b_0, h_w, ambient, t_0 = 1.0e-3, s_0 = 1.0e-3, MELT=True):
     # TODO: The initialisation could still be made a bit tider/clearer
 
     plume_variables = ['b_p', 	# plume radius (m)
-                       'u_p', 	# vertical velocity (m/s)
+                       'w_p', 	# vertical velocity (m/s)
                        't_p', 	# temperature (deg C)
                        's_p', 	# salinity (kg/m3)
                        'm_p',   # melt rate (m/s)
@@ -278,7 +278,7 @@ def calc_plume(u_0, b_0, h_w, ambient, t_0 = 1.0e-3, s_0 = 1.0e-3, MELT=True):
     
     # Populate the output dict with the initial conditions
     plume['b_p'].append(b_0)
-    plume['u_p'].append(u_0)
+    plume['w_p'].append(u_0)
     plume['t_p'].append(t_0)
     plume['s_p'].append(s_0)
     plume['m_p'].append(0.)

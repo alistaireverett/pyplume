@@ -91,7 +91,7 @@ disch_data['plume_density'] = disch_data['results'].apply(
 
 # Define a function to extract volume a given 
 def vol_flux_at_depth(data, height_above_source):
-    vol_flux = 0.5 * math.pi * data['b_p']**2. *data['u_p']
+    vol_flux = 0.5 * math.pi * data['b_p']**2. *data['w_p']
     vol_flux_out = vol_flux[data['z']==height_above_source]
     return vol_flux_out[0]
 
