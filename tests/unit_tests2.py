@@ -52,17 +52,17 @@ class PyPlumeTests(unittest.TestCase):
 
     def test_melt_function(self):
         t_inf = 4.
-        u_inf = 0.1
+        v_inf = 0.1
         s_inf = 30.
         pressure = 10.
-        t_b, s_b, mdot = pyplume.get_melt(u_inf,t_inf,s_inf,pressure)
+        t_b, s_b, mdot = pyplume.get_melt(v_inf,t_inf,s_inf,pressure)
         self.assertAlmostEqual(
                 mdot*pyplume.const.L+mdot*pyplume.const.C_I*(t_b-pyplume.const.T_I),
-                pyplume.const.C_W*u_inf*pyplume.const.C_D**0.5*pyplume.const.GAM_T*(t_inf-t_b))
+                pyplume.const.C_W*v_inf*pyplume.const.C_D**0.5*pyplume.const.GAM_T*(t_inf-t_b))
         self.assertAlmostEqual(t_b,
                 pyplume.const.A*s_b + pyplume.const.B + pyplume.const.C*pressure)
         self.assertAlmostEqual(mdot*s_b,
-                u_inf*(pyplume.const.C_D**0.5)*pyplume.const.GAM_S*(s_inf-s_b))
+                v_inf*(pyplume.const.C_D**0.5)*pyplume.const.GAM_S*(s_inf-s_b))
 
 if __name__ == "__main__":
 

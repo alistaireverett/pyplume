@@ -145,11 +145,11 @@ def inlet(h_i, h_w, q):
     return radius, velocity
 
 
-def get_melt(u_inf,t_inf,s_inf,pressure):
+def get_melt(v_inf,t_inf,s_inf,pressure):
     """Quadratic solution to the three equation melt parameterisation
 
     Args:
-        u_inf (float) :     farfield velocity (m/s)
+        v_inf (float) :     farfield velocity (m/s)
         t_inf (float) :     farfield temperature (deg C)
         s_inf (float) :     farfield salinity (kg/m3)
         pressure (float) :  pressure (Pa)
@@ -169,7 +169,7 @@ def get_melt(u_inf,t_inf,s_inf,pressure):
 
     s_b = (1./(2.*aa))*(-bb-((bb**2.-4.*aa*cc)**0.5))
     t_b = const.A*s_b+const.B+const.C*pressure
-    mdot = const.GAM_S*(const.C_D**0.5)*u_inf*(s_inf-s_b)/s_b
+    mdot = const.GAM_S*(const.C_D**0.5)*v_inf*(s_inf-s_b)/s_b
 
     return t_b, s_b, mdot
 
