@@ -231,7 +231,8 @@ def wallPlume(z, y, ambient, z_max, MELT=True):
 
     return ydot
 
-def calc_plume(w_0, b_0, h_w, ambient, t_0 = 1.0e-3, s_0 = 1.0e-3, MELT=True):
+def calc_plume(w_0, b_0, h_w, ambient, 
+               t_0 = 1.0e-3, s_0 = 1.0e-3, MELT=True, z_step=0.1):
     """Solve the plume equations for the specified initial conditions
 
 
@@ -286,7 +287,6 @@ def calc_plume(w_0, b_0, h_w, ambient, t_0 = 1.0e-3, s_0 = 1.0e-3, MELT=True):
     # set up the depths to iterate over
     # depth = 0 at surface, increasing down
     # z = z_max at surface, decreasing down (z = z_max - depth)
-    z_step = .1
     z_range = np.arange(0, h_w + z_step, z_step)
 
     # Set the solver and tolerances
