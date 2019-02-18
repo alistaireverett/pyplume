@@ -229,11 +229,6 @@ def wallPlume(z, y, ambient, z_max, MELT=True):
                + 4.*mdot*(s_b-y[3])/(math.pi*y[0]*y[1])
                - 4.*const.GAM_S*(const.C_D**0.5)*(y[3]-s_b)/(math.pi*y[0]))
 
-    #ydot[4] = mdot - y[4]
-
-    #ydot[5] = t_amb - y[5]
-    #ydot[6] = s_amb - y[6]
-
     return ydot
 
 def calc_plume(w_0, b_0, h_w, ambient, t_0 = 1.0e-3, s_0 = 1.0e-3, MELT=True):
@@ -321,11 +316,6 @@ def calc_plume(w_0, b_0, h_w, ambient, t_0 = 1.0e-3, s_0 = 1.0e-3, MELT=True):
         plume['m_p'].append(melt)
         plume['t_a'].append(ambient.get_temp_z(solver.t))
         plume['s_a'].append(ambient.get_sal_z(solver.t))
-
-        #[plume[key].append(solver.y[k].item()) for k,key in enumerate(plume_variables)]
-
-        # add melt
-
 
     # add z_range into output dict
     plume['z'] = z_range
