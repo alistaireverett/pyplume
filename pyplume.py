@@ -229,14 +229,10 @@ def wallPlume(z, y, ambient, z_max, MELT=True):
                + 4.*mdot*(s_b-y[3])/(math.pi*y[0]*y[1])
                - 4.*const.GAM_S*(const.C_D**0.5)*(y[3]-s_b)/(math.pi*y[0]))
 
-    ydot[4] = mdot - y[4]
-
-    ydot[5] = t_amb - y[5]
-    ydot[6] = s_amb - y[6]
-
     return ydot
 
-def calc_plume(w_0, b_0, h_w, ambient, t_0 = 1.0e-3, s_0 = 1.0e-3, MELT=True):
+def calc_plume(w_0, b_0, h_w, ambient, 
+               t_0 = 1.0e-3, s_0 = 1.0e-3, MELT=True, z_step=0.1):
     """Solve the plume equations for the specified initial conditions
 
 
@@ -286,12 +282,11 @@ def calc_plume(w_0, b_0, h_w, ambient, t_0 = 1.0e-3, s_0 = 1.0e-3, MELT=True):
     plume['s_a'].append(ambient.get_sal_z(0))
 
     # extract the initial conditions as an input array for the ode solver
-    y = np.array([plume[key][0] for key in plume_variables])
+    y = np.array([plume[key][0] for key in plume_variables[:4]])
 
     # set up the depths to iterate over
     # depth = 0 at surface, increasing down
     # z = z_max at surface, decreasing down (z = z_max - depth)
-    z_step = .1
     z_range = np.arange(0, h_w + z_step, z_step)
 
     # Set the solver and tolerances
@@ -310,7 +305,17 @@ def calc_plume(w_0, b_0, h_w, ambient, t_0 = 1.0e-3, s_0 = 1.0e-3, MELT=True):
         solver.integrate(z_range[i])
         
         # populate output dict with solver result for current step
-        [plume[key].append(solver.y[k].item()) for k,key in enumerate(plume_variables)]
+        plume['b_p'].append(solver.y[0])
+        plume['w_p'].append(solver.y[1])
+        plume['t_p'].append(solver.y[2])
+        plume['s_p'].append(solver.y[3])
+
+		# calculate and add melt
+        _,_,melt = get_melt(solver.y[1],solver.y[2],solver.y[3],
+        					ambient.get_pres_z(solver.t))
+        plume['m_p'].append(melt)
+        plume['t_a'].append(ambient.get_temp_z(solver.t))
+        plume['s_a'].append(ambient.get_sal_z(solver.t))
 
     # add z_range into output dict
     plume['z'] = z_range
