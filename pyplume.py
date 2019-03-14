@@ -266,6 +266,7 @@ def calc_plume(w_0, b_0, h_w, ambient,
                        'm_p',   # melt rate (m/s)
                        't_a', 	# ambient salinity (kg/m3)
                        's_a', 	# ambient temperature (deg C)
+                       'z',     # height about source (m)
                       ]
 
     # Create output dictionary containting all the keys in the plume variables
@@ -280,6 +281,7 @@ def calc_plume(w_0, b_0, h_w, ambient,
     plume['m_p'].append(0.)
     plume['t_a'].append(ambient.get_temp_z(0))
     plume['s_a'].append(ambient.get_sal_z(0))
+    plume['z'].append(0.)
 
     # extract the initial conditions as an input array for the ode solver
     y = np.array([plume[key][0] for key in plume_variables[:4]])
@@ -310,6 +312,10 @@ def calc_plume(w_0, b_0, h_w, ambient,
         plume['t_p'].append(solver.y[2])
         plume['s_p'].append(solver.y[3])
 
+        # adding catcher to prevent over runs of z_range
+        if solver.t > h_w:
+           continue 
+
 		# calculate and add melt
         _,_,melt = get_melt(solver.y[1],solver.y[2],solver.y[3],
         					ambient.get_pres_z(solver.t))
@@ -317,12 +323,12 @@ def calc_plume(w_0, b_0, h_w, ambient,
         plume['t_a'].append(ambient.get_temp_z(solver.t))
         plume['s_a'].append(ambient.get_sal_z(solver.t))
 
-    # add z_range into output dict
-    plume['z'] = z_range
+        # add z_range into output dict
+        plume['z'].append(solver.t)
 
     # populate rest of dict with nans if they solver didn't reach the surface
     for key in plume_variables:
-        plume[key] += [np.nan]*(len(plume['z'])-len(plume[key]))
+        plume[key] += [np.nan]*(len(z_range)-len(plume[key]))
 
     return plume 
     
